@@ -35,10 +35,18 @@ int main()
         ENetBuffer sendbuf;
         sendbuf.data = (char *)&pt;
         sendbuf.dataLength = sizeof(PacketTransmission);
-        enet_socket_send(scanner, &addr, &sendbuf, sizeof(PacketTransmission));
+
+        printf("Broadcasting packet... ");
+        int length = enet_socket_send(scanner, &addr, &sendbuf, 1);
+        if (length > 0) {
+            printf("Sent %d bytes.\n", length);
+        } else {
+            printf("Failed with return value %d.\n", length);
+        }
         Sleep(1000);
     }
 
     enet_socket_destroy(scanner);
     enet_deinitialize();
+    getchar();
 }

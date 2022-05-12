@@ -14,15 +14,6 @@ ENetSocket listensocket;
 
 void listenforclients()
 {
-    ENetSocketSet set;
-    ENET_SOCKETSET_EMPTY(set);
-    ENET_SOCKETSET_ADD(set, listensocket);
-    if (enet_socketset_select(listensocket, &set, NULL, 0) <= 0) {
-        //nothing, return
-        return;
-    }
-
-    printf("we got a message?\n");
     ENetAddress scanneraddress = { 0 };
 
     PacketTransmission pt = { 0 };
@@ -31,8 +22,10 @@ void listenforclients()
     scannerbuffer.data = (char *)&pt;
     scannerbuffer.dataLength = sizeof(PacketTransmission);
 
-    int recvlen = enet_socket_receive(listensocket, &scanneraddress, &scannerbuffer, sizeof(ENetBuffer));
+    printf("Listening for packets... ");
+    int recvlen = enet_socket_receive(listensocket, &scanneraddress, &scannerbuffer, 1);
     if (recvlen <= 0) {
+        printf("Failed with return value %d\n", recvlen);
         return;
     }
 
@@ -41,13 +34,12 @@ void listenforclients()
         uint16_t port;
     }PrinableIpInfo;
 
-    PrinableIpInfo ouripforscanner = { 0 };
-    if (enet_address_get_host(&host->address, ouripforscanner.hostname, sizeof(ouripforscanner.hostname)) != 0) {
+    PrinableIpInfo clientInfo = { 0 };
+    if (enet_address_get_host_ip(&host->address, clientInfo.hostname, sizeof(clientInfo.hostname)) != 0) {
         return;
     }
-    ouripforscanner.port = host->address.port;
-    scannerbuffer.data = &ouripforscanner;
-    scannerbuffer.dataLength = sizeof(PrinableIpInfo);
+
+    printf("Received %zu bytes from %s:%hu\n", scannerbuffer.dataLength, clientInfo.hostname, clientInfo.port);
 }
 void checkforconnectionfrompeer()
 {
@@ -77,13 +69,18 @@ void checkforconnectionfrompeer()
 
 int main()
 {
+    if (enet_initialize()) {
+        printf("Failed to initialize enet (wsa code: %d)\n", WSAGetLastError());
+        exit(EXIT_FAILURE);
+    }
+
     listensocket = enet_socket_create(ENET_SOCKET_TYPE_DATAGRAM);
     enet_socket_set_option(listensocket, ENET_SOCKOPT_REUSEADDR, 1);
     ENetAddress listenaddress = { 0 };
     listenaddress.host = ENET_HOST_ANY;
     listenaddress.port = 6789;
     if (enet_socket_bind(listensocket, &listenaddress)) {
-        printf("bind error\n");
+        printf("bind error (wsa code: %d)\n", WSAGetLastError());
         exit(EXIT_FAILURE);
     }
 
@@ -101,4 +98,7 @@ int main()
         listenforclients();
         checkforconnectionfrompeer();
     }
+
+    enet_socket_destroy(listensocket);
+    enet_deinitialize();
 }
